@@ -87,12 +87,12 @@ export default function StageOneIntro({ onNext }: StageOneIntroProps) {
       <div className="inline-guide">
         {phase === 'forward' && 'Forward pass: information flows left to right through each step in the sequence.'}
         {phase === 'prediction' && 'Prediction appears at the output node.'}
-        {phase === 'done' && 'Stage 1 shows only the forward flow and prediction output.'}
+        {phase === 'done' && 'So how does the model learn from this?'}
         {phase === 'idle' && 'Press replay to start the mini simulation.'}
       </div>
 
       <div className="explain-block">
-        In Stage 1, we only observe the forward pass and prediction generation. Backward error flow and correction are introduced in the next stage.
+        Backpropagation Through Time sends error backward from the output to earlier sequence steps, so each step can be corrected based on its role in the final prediction. Let’s understand it better in the next stage.
       </div>
 
       {phase === 'done' && (
