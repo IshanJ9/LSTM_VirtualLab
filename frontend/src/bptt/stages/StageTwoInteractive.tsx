@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import NodeLinkScene from '../components/NodeLinkScene'
+import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { estimateNext, normalizedContributions, parseSequence, round2, wait } from '../utils'
 import type { ParsedSequence } from '../types'
@@ -170,8 +170,6 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
   }
 
   const mismatch = isMismatch === true
-  const predictionWidth = Math.max(112, Math.min(210, (predictionLabel.length || 5) * 10 + 28))
-  const predictionHeight = 54
   const inlineText =
     phase === 'forward'
       ? 'Forward pass: information flows left to right through the sequence.'
@@ -266,18 +264,12 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
 
       {parsed.valid && (
         <>
-          <NodeLinkScene
+          <StageThreeNodeLinkScene
             values={parsed.tokens}
             contributions={contributions}
-            curvedEdges
-            showDualCurves
-            forwardHighlightTone="gold"
             forwardIndex={forwardIndex}
             backwardIndex={phase === 'backward' || phase === 'done' ? backwardIndex : null}
-            showOutput
-            outputNodeLabel="y_hat"
-            predictionBoxWidth={predictionWidth}
-            predictionBoxHeight={predictionHeight}
+              compact
             predictionLabel={predictionLabel || undefined}
             actualLabel={actualLabel || undefined}
             showError={mismatch && (phase === 'error' || phase === 'backward' || phase === 'done')}

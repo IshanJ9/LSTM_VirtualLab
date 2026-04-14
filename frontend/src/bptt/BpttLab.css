@@ -509,10 +509,81 @@
   overflow: hidden;
 }
 
+.stage3-scene-shell {
+  min-height: 238px;
+}
+
+.stage3-scene-shell.is-compact {
+  min-height: 188px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.stage3-scene-graph {
+  min-height: 194px;
+  padding: 20px 14px 6px;
+}
+
+.stage3-scene-shell.is-compact .stage3-scene-graph {
+  min-height: 146px;
+  padding: 10px 10px 2px;
+}
+
+.stage3-scene-shell.is-compact .scene-output {
+  margin: 0 10px 10px;
+  padding-top: 8px;
+  gap: 8px;
+}
+
+.stage3-scene-shell.is-compact .pill {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
 .stage3-scroller {
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
   padding-bottom: 6px;
+}
+
+.stage3-epoch-table-wrap {
+  margin-top: 10px;
+}
+
+.stage3-epoch-table-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(138, 163, 196, 0.24);
+  border-radius: 12px;
+  background: rgba(7, 14, 23, 0.86);
+}
+
+.stage3-epoch-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  color: #d9e8ff;
+}
+
+.stage3-epoch-table th,
+.stage3-epoch-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(138, 163, 196, 0.2);
+  text-align: left;
+  font-size: 0.84rem;
+}
+
+.stage3-epoch-table th {
+  background: rgba(15, 29, 44, 0.94);
+  color: #e8f2ff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.stage3-epoch-table tbody tr:hover {
+  background: rgba(91, 180, 255, 0.08);
 }
 
 .stage3-explain {

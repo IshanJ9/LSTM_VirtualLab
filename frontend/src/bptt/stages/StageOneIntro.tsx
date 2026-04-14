@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import NodeLinkScene from '../components/NodeLinkScene'
+import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { normalizedContributions, wait } from '../utils'
 
-type Phase = 'idle' | 'forward' | 'prediction' | 'error' | 'backward' | 'done'
+type Phase = 'idle' | 'forward' | 'prediction' | 'done'
 
 const tokens = ['10', '12', '15']
 const predicted = '18'
@@ -16,7 +16,6 @@ interface StageOneIntroProps {
 export default function StageOneIntro({ onNext }: StageOneIntroProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [forwardIndex, setForwardIndex] = useState(-1)
-  const [backwardIndex, setBackwardIndex] = useState<number | null>(null)
   const [speed, setSpeed] = useState(1)
   const runToken = useRef(0)
 
@@ -34,7 +33,6 @@ export default function StageOneIntro({ onNext }: StageOneIntroProps) {
 
     setPhase('forward')
     setForwardIndex(-1)
-    setBackwardIndex(null)
 
     for (let i = 0; i < tokens.length; i += 1) {
       if (localToken !== runToken.current) return
@@ -45,18 +43,6 @@ export default function StageOneIntro({ onNext }: StageOneIntroProps) {
     if (localToken !== runToken.current) return
     setPhase('prediction')
     await wait(1500 * pace)
-
-    if (localToken !== runToken.current) return
-    setPhase('error')
-    await wait(1900 * pace)
-
-    if (localToken !== runToken.current) return
-    setPhase('backward')
-    for (let i = tokens.length - 1; i >= 0; i -= 1) {
-      if (localToken !== runToken.current) return
-      setBackwardIndex(i)
-      await wait(720 * pace)
-    }
 
     if (localToken !== runToken.current) return
     setPhase('done')
@@ -87,32 +73,26 @@ export default function StageOneIntro({ onNext }: StageOneIntroProps) {
         </div>
       </div>
 
-      <NodeLinkScene
+      <StageThreeNodeLinkScene
         values={tokens}
         contributions={contributions}
-        compactNodes
-        curvedEdges
-        forwardHighlightTone="gold"
         forwardIndex={forwardIndex}
-        backwardIndex={phase === 'backward' || phase === 'done' ? backwardIndex : null}
-        showOutput
-        predictionLabel={phase === 'prediction' || phase === 'error' || phase === 'backward' || phase === 'done' ? predicted : undefined}
-        actualLabel={phase === 'error' || phase === 'backward' || phase === 'done' ? actual : undefined}
-        showError={phase === 'error' || phase === 'backward' || phase === 'done'}
-        outputNodeLabel="?"
+        backwardIndex={null}
+          compact
+        predictionLabel={phase === 'prediction' || phase === 'done' ? predicted : undefined}
+        actualLabel={phase === 'prediction' || phase === 'done' ? actual : undefined}
+        showError={false}
       />
 
       <div className="inline-guide">
         {phase === 'forward' && 'Forward pass: information flows left to right through each step in the sequence.'}
         {phase === 'prediction' && 'Prediction appears at the output node.'}
-        {phase === 'error' && 'The model made a mistake. The gap between predicted and actual output is the learning signal.'}
-        {phase === 'backward' && 'So how does the model learn from this?'}
-        {phase === 'done' && 'So how does the model learn from this?'}
+        {phase === 'done' && 'Stage 1 shows only the forward flow and prediction output.'}
         {phase === 'idle' && 'Press replay to start the mini simulation.'}
       </div>
 
       <div className="explain-block">
-        Backpropagation Through Time sends error backward from the output to earlier sequence steps, so each step can be corrected based on its role in the final prediction. Let’s understand it better in the next stage.
+        In Stage 1, we only observe the forward pass and prediction generation. Backward error flow and correction are introduced in the next stage.
       </div>
 
       {phase === 'done' && (

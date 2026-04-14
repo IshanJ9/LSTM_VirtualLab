@@ -1,16 +1,26 @@
-import { useMemo, useRef, useState } from 'react'
-import NodeLinkScene from '../components/NodeLinkScene'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { clamp, estimateNext, normalizedContributions, parseSequence, round2, wait } from '../utils'
 
 type Phase = 'idle' | 'forward' | 'prediction' | 'loss' | 'backward' | 'update' | 'done'
 
+interface EpochRecord {
+  epoch: number
+  prediction: number
+  target: number
+  loss: number
+  gradient: number
+  weight: number
+  bpttWindow: number
+}
+
 export default function StageThreeFull() {
   const [sequenceInput, setSequenceInput] = useState('10 12 15 18 21 25 30')
-  const [seqLength, setSeqLength] = useState(12)
-  const [learningRate, setLearningRate] = useState(0.07)
-  const [decay, setDecay] = useState(0.72)
-  const [noiseFactor, setNoiseFactor] = useState(0.04)
+  const [learningRate, setLearningRate] = useState(0.01)
+  const [decay, setDecay] = useState(0.9)
+  const [noiseFactor, setNoiseFactor] = useState(0.05)
+  const [bpttWindow, setBpttWindow] = useState<number | null>(null)
   const [speed, setSpeed] = useState(1)
   const [technicalMode, setTechnicalMode] = useState(false)
 
@@ -25,6 +35,7 @@ export default function StageThreeFull() {
   const [target, setTarget] = useState(0)
   const [loss, setLoss] = useState(0)
   const [gradient, setGradient] = useState(0)
+  const [epochRecords, setEpochRecords] = useState<EpochRecord[]>([])
 
   const runToken = useRef(0)
 
@@ -33,29 +44,42 @@ export default function StageThreeFull() {
   const numbers = useMemo(() => {
     const generated = parsedRaw.numbers.length
       ? parsedRaw.numbers
-      : Array.from({ length: Math.max(5, seqLength) }, (_, idx) => idx + 1)
+      : Array.from({ length: Math.max(5, parsedRaw.tokens.length || 0) }, (_, idx) => idx + 1)
 
-    const selected = generated.slice(0, seqLength)
-    if (selected.length >= 2) return selected
+    if (generated.length >= 2) return generated
     return [1, 2, 3, 4, 5]
-  }, [parsedRaw.numbers, seqLength])
+  }, [parsedRaw.numbers, parsedRaw.tokens.length])
 
   const labels = useMemo(() => {
     const base = parsedRaw.kind === 'numeric'
       ? numbers.map((value) => String(round2(value)))
       : parsedRaw.tokens.length
-        ? parsedRaw.tokens.slice(0, seqLength)
+        ? parsedRaw.tokens
         : numbers.map((_, idx) => `x${idx + 1}`)
 
     return base.length >= 2 ? base : ['x1', 'x2', 'x3', 'x4', 'x5']
-  }, [numbers, parsedRaw.kind, parsedRaw.tokens, seqLength])
+  }, [numbers, parsedRaw.kind, parsedRaw.tokens])
+
+  const minWindow = Math.min(5, labels.length)
+  const maxWindow = labels.length
+  const effectiveWindow = useMemo(() => {
+    if (bpttWindow === null) return maxWindow
+    return clamp(bpttWindow, minWindow, maxWindow)
+  }, [bpttWindow, maxWindow, minWindow])
+
+  useEffect(() => {
+    setBpttWindow((prev) => {
+      if (prev === null) return labels.length
+      return clamp(prev, minWindow, labels.length)
+    })
+  }, [labels.length, minWindow])
 
   const contributions = useMemo(() => normalizedContributions(labels.length, decay), [labels.length, decay])
   const pauseMs = useMemo(() => clamp(920 / speed, 100, 1400), [speed])
-  const timelineWidth = useMemo(() => Math.max(1000, labels.length * 110), [labels.length])
 
-  function featuresFromNumbers(series: number[]): number {
-    return series.reduce((sum, value, idx) => sum + value * Math.pow(decay, series.length - idx - 1), 0)
+  function featuresFromNumbers(series: number[], windowSize: number): number {
+    const trimmed = series.slice(Math.max(0, series.length - windowSize))
+    return trimmed.reduce((sum, value, idx) => sum + value * Math.pow(decay, trimmed.length - idx - 1), 0)
   }
 
   function resetViewOnly() {
@@ -70,10 +94,12 @@ export default function StageThreeFull() {
     setIsPlaying(false)
     setEpoch(0)
     setWeight(0.72)
+    setBpttWindow(labels.length)
     setPrediction(0)
     setTarget(0)
     setLoss(0)
     setGradient(0)
+    setEpochRecords([])
   }
 
   async function runSingleEpoch(localToken: number, localWeight: number, epochNumber: number): Promise<number> {
@@ -88,7 +114,7 @@ export default function StageThreeFull() {
       await wait(pauseMs)
     }
 
-    const featureSignal = featuresFromNumbers(numbers)
+    const featureSignal = featuresFromNumbers(numbers, effectiveWindow)
     const targetValue = estimateNext(numbers)
     const noise = (Math.random() - 0.5) * noiseFactor * Math.max(1, Math.abs(targetValue))
     const predValue = localWeight * featureSignal + noise
@@ -108,7 +134,8 @@ export default function StageThreeFull() {
 
     if (localToken !== runToken.current) return localWeight
     setPhase('backward')
-    for (let i = labels.length - 1; i >= 0; i -= 1) {
+    const backwardStop = Math.max(0, labels.length - effectiveWindow)
+    for (let i = labels.length - 1; i >= backwardStop; i -= 1) {
       if (localToken !== runToken.current) return localWeight
       setBackwardIndex(i)
       await wait(pauseMs * 0.75)
@@ -116,11 +143,28 @@ export default function StageThreeFull() {
 
     const grad = -2 * (targetValue - predValue) * featureSignal
     if (localToken !== runToken.current) return localWeight
-    setGradient(round2(grad))
+    const roundedPred = round2(predValue)
+    const roundedTarget = round2(targetValue)
+    const roundedLoss = round2(computedLoss)
+    const roundedGrad = round2(grad)
+    setGradient(roundedGrad)
     setPhase('update')
 
     const updatedWeight = localWeight - learningRate * grad
-    setWeight(round2(updatedWeight))
+    const roundedWeight = round2(updatedWeight)
+    setWeight(roundedWeight)
+    setEpochRecords((prev) => [
+      ...prev,
+      {
+        epoch: epochNumber,
+        prediction: roundedPred,
+        target: roundedTarget,
+        loss: roundedLoss,
+        gradient: roundedGrad,
+        weight: roundedWeight,
+        bpttWindow: effectiveWindow,
+      },
+    ])
     await wait(pauseMs)
 
     return updatedWeight
@@ -132,6 +176,7 @@ export default function StageThreeFull() {
     runToken.current += 1
     const localToken = runToken.current
     setIsPlaying(true)
+    setEpochRecords([])
 
     let localWeight = weight
     for (let i = 1; i <= epochCount; i += 1) {
@@ -157,7 +202,7 @@ export default function StageThreeFull() {
     if (next === labels.length) {
       setPhase('prediction')
       const targetValue = estimateNext(numbers)
-      setPrediction(round2(weight * featuresFromNumbers(numbers)))
+      setPrediction(round2(weight * featuresFromNumbers(numbers, effectiveWindow)))
       setTarget(round2(targetValue))
     }
   }
@@ -211,47 +256,48 @@ export default function StageThreeFull() {
           />
 
           <div className="stage3-slider-row">
-            <label htmlFor="seq-length">Sequence length</label>
-            <span>{seqLength}</span>
-          </div>
-          <input
-            className="stage3-range"
-            id="seq-length"
-            type="range"
-            min={5}
-            max={60}
-            value={seqLength}
-            onChange={(event) => setSeqLength(Number(event.target.value))}
-          />
-
-          <div className="stage3-slider-row">
             <label htmlFor="learning-rate">Learning rate</label>
-            <span>{learningRate.toFixed(2)}</span>
+            <span>{learningRate.toFixed(3)}</span>
           </div>
           <input
             className="stage3-range"
             id="learning-rate"
             type="range"
-            min={0.01}
-            max={0.25}
-            step={0.01}
+            min={0.001}
+            max={0.05}
+            step={0.001}
             value={learningRate}
             onChange={(event) => setLearningRate(Number(event.target.value))}
           />
 
           <div className="stage3-slider-row">
-            <label htmlFor="decay-factor">Gradient decay</label>
+            <label htmlFor="decay-factor">Gradient decay factor</label>
             <span>{decay.toFixed(2)}</span>
           </div>
           <input
             className="stage3-range"
             id="decay-factor"
             type="range"
-            min={0.4}
-            max={0.95}
+            min={0.7}
+            max={0.99}
             step={0.01}
             value={decay}
             onChange={(event) => setDecay(Number(event.target.value))}
+          />
+
+          <div className="stage3-slider-row">
+            <label htmlFor="bptt-window">BPTT window</label>
+            <span>{effectiveWindow}</span>
+          </div>
+          <input
+            className="stage3-range"
+            id="bptt-window"
+            type="range"
+            min={minWindow}
+            max={maxWindow}
+            step={1}
+            value={effectiveWindow}
+            onChange={(event) => setBpttWindow(Number(event.target.value))}
           />
 
           <div className="stage3-slider-row">
@@ -270,7 +316,7 @@ export default function StageThreeFull() {
           />
 
           <div className="stage3-slider-row">
-            <label htmlFor="speed">Speed</label>
+            <label htmlFor="speed">Simulation speed</label>
             <span>{speed.toFixed(1)}x</span>
           </div>
           <input
@@ -307,23 +353,56 @@ export default function StageThreeFull() {
           </div>
 
           <div className="stage3-scroller">
-            <div style={{ minWidth: timelineWidth }}>
-              <NodeLinkScene
-                values={labels}
-                contributions={contributions}
-                forwardIndex={forwardIndex}
-                backwardIndex={phase === 'backward' || phase === 'update' || phase === 'done' ? backwardIndex : null}
-                curvedEdges
-                showDualCurves
-                showOutput
-                outputNodeLabel="y_hat"
-                predictionLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(prediction) : undefined}
-                actualLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(target) : undefined}
-                showError={phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done'}
-                lossRatio={target !== 0 ? clamp(loss / (Math.abs(target) + 1), 0, 1) : clamp(loss, 0, 1)}
-                timelineWidth={timelineWidth}
-              />
+            <StageThreeNodeLinkScene
+              values={labels}
+              contributions={contributions}
+              forwardIndex={forwardIndex}
+              backwardIndex={phase === 'backward' || phase === 'update' || phase === 'done' ? backwardIndex : null}
+              predictionLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(prediction) : undefined}
+              actualLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(target) : undefined}
+              showError={phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done'}
+              lossRatio={target !== 0 ? clamp(loss / (Math.abs(target) + 1), 0, 1) : clamp(loss, 0, 1)}
+            />
+          </div>
+
+          <div className="stage3-epoch-table-wrap">
+            <div className="stage3-title" style={{ marginBottom: 8 }}>
+              Epoch-wise Training Summary
             </div>
+            {epochRecords.length === 0 ? (
+              <div className="inline-guide" style={{ marginTop: 0 }}>
+                Run the simulation to populate epoch-wise results.
+              </div>
+            ) : (
+              <div className="stage3-epoch-table-scroll">
+                <table className="stage3-epoch-table" aria-label="Epoch-wise training summary">
+                  <thead>
+                    <tr>
+                      <th>Epoch</th>
+                      <th>Prediction</th>
+                      <th>Target</th>
+                      <th>Loss</th>
+                      <th>Gradient</th>
+                      <th>Weight (W)</th>
+                      <th>BPTT Window</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {epochRecords.map((row) => (
+                      <tr key={`epoch-row-${row.epoch}`}>
+                        <td>{row.epoch}</td>
+                        <td>{row.prediction}</td>
+                        <td>{row.target}</td>
+                        <td>{row.loss}</td>
+                        <td>{row.gradient}</td>
+                        <td>{row.weight}</td>
+                        <td>{row.bpttWindow}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="metrics">
@@ -334,6 +413,7 @@ export default function StageThreeFull() {
             <div className="metric">y: {target}</div>
             <div className="metric">L: {loss}</div>
             <div className="metric">gradient: {gradient}</div>
+            <div className="metric">BPTT window: {effectiveWindow}</div>
           </div>
         </section>
       </div>
