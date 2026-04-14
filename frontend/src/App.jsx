@@ -4,6 +4,7 @@ import Aim from './pages/Aim'
 import Objectives from './pages/Objectives'
 import Theory from './pages/Theory'
 import Simulation from './pages/Simulation'
+import BPTTLab from './pages/BPTTLab'
 import Analysis from './pages/Analysis'
 import Quiz from './pages/Quiz'
 
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/objectives" element={<Objectives />} />
             <Route path="/theory"     element={<Theory />} />
             <Route path="/simulation" element={<Simulation />} />
+            <Route path="/bptt-lab"   element={<BPTTLab />} />
             <Route path="/analysis"   element={<Analysis />} />
             <Route path="/quiz"       element={<Quiz />} />
           </Routes>

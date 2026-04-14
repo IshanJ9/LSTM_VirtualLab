@@ -5,6 +5,7 @@ const LINKS = [
   { to: '/aim',        label: 'Aim' },
   { to: '/objectives', label: 'Objectives' },
   { to: '/theory',     label: 'Theory' },
+  { to: '/bptt-lab',   label: 'BPTT Lab' },
   { to: '/simulation', label: 'Simulation' },
   { to: '/analysis',   label: 'Analysis' },
   { to: '/quiz',       label: 'Quiz' },
