@@ -1,0 +1,9 @@
+{
+  "id": "noisy",
+  "name": "Noisy Signal",
+  "type": "Robust Time Series",
+  "focus": "Noise robustness and filtering",
+  "description": "Sine wave corrupted with Gaussian noise (\u03c3=0.12). Tests gate robustness.",
+  "color": "#8B5CF6",
+  "sequence_length": 80
+}

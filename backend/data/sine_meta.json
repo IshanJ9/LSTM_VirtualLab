@@ -1,0 +1,9 @@
+{
+  "id": "sine",
+  "name": "Sine Wave",
+  "type": "Periodic Signal",
+  "focus": "Short-term dependency learning",
+  "description": "Pure sinusoidal signal. LSTM must learn periodicity and phase.",
+  "color": "#00E5FF",
+  "sequence_length": 80
+}

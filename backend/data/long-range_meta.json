@@ -1,0 +1,10 @@
+{
+  "id": "long-range",
+  "name": "Long-Range Dependency",
+  "type": "Delayed Pattern",
+  "focus": "Long-term memory retention",
+  "description": "Output equals input from 10 steps ago. Tests LSTM long-term memory.",
+  "color": "#10B981",
+  "sequence_length": 80,
+  "delay": 10
+}
