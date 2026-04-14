@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { clamp, estimateNext, normalizedContributions, parseSequence, round2, wait } from '../utils'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 type Phase = 'idle' | 'forward' | 'prediction' | 'loss' | 'backward' | 'update' | 'done'
 
@@ -15,9 +17,15 @@ interface EpochRecord {
   bpttWindow: number
 }
 
+function BlockMath({ tex }: { tex: string }) {
+  const html = katex.renderToString(tex, { throwOnError: false, displayMode: true })
+  return <div className="stage3-tech-equation" dangerouslySetInnerHTML={{ __html: html }} />
+}
+
 export default function StageThreeFull() {
   const [sequenceInput, setSequenceInput] = useState('10 12 15 18 21 25 30')
-  const [learningRate, setLearningRate] = useState(0.01)
+  const [selectedEpochs, setSelectedEpochs] = useState(20)
+  const [learningRate, setLearningRate] = useState(0.012)
   const [decay, setDecay] = useState(0.9)
   const [noiseFactor, setNoiseFactor] = useState(0.05)
   const [bpttWindow, setBpttWindow] = useState<number | null>(null)
@@ -60,6 +68,15 @@ export default function StageThreeFull() {
     return base.length >= 2 ? base : ['x1', 'x2', 'x3', 'x4', 'x5']
   }, [numbers, parsedRaw.kind, parsedRaw.tokens])
 
+  const inputScale = useMemo(() => {
+    const maxInput = Math.max(...numbers.map((value) => Math.abs(value)), 1)
+    return maxInput > 0 ? maxInput : 1
+  }, [numbers])
+
+  const normalizedNumbers = useMemo(() => {
+    return numbers.map((value) => value / inputScale)
+  }, [numbers, inputScale])
+
   const minWindow = Math.min(5, labels.length)
   const maxWindow = labels.length
   const effectiveWindow = useMemo(() => {
@@ -76,6 +93,12 @@ export default function StageThreeFull() {
 
   const contributions = useMemo(() => normalizedContributions(labels.length, decay), [labels.length, decay])
   const pauseMs = useMemo(() => clamp(920 / speed, 100, 1400), [speed])
+  const safeLearningRate = useMemo(() => clamp(learningRate, 0.001, 0.02), [learningRate])
+
+  function roundTo(value: number, decimals: number): number {
+    const factor = Math.pow(10, decimals)
+    return Math.round(value * factor) / factor
+  }
 
   function featuresFromNumbers(series: number[], windowSize: number): number {
     const trimmed = series.slice(Math.max(0, series.length - windowSize))
@@ -95,6 +118,7 @@ export default function StageThreeFull() {
     setEpoch(0)
     setWeight(0.72)
     setBpttWindow(labels.length)
+    setSelectedEpochs(20)
     setPrediction(0)
     setTarget(0)
     setLoss(0)
@@ -102,24 +126,24 @@ export default function StageThreeFull() {
     setEpochRecords([])
   }
 
-  async function runSingleEpoch(localToken: number, localWeight: number, epochNumber: number): Promise<number> {
+  async function runSingleEpoch(localToken: number, localWeight: number, epochNumber: number): Promise<{ nextWeight: number; nextLoss: number }> {
     setEpoch(epochNumber)
     setPhase('forward')
     setForwardIndex(-1)
     setBackwardIndex(null)
 
     for (let i = 0; i < labels.length; i += 1) {
-      if (localToken !== runToken.current) return localWeight
+      if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
       setForwardIndex(i)
       await wait(pauseMs)
     }
 
-    const featureSignal = featuresFromNumbers(numbers, effectiveWindow)
-    const targetValue = estimateNext(numbers)
+    const featureSignal = featuresFromNumbers(normalizedNumbers, effectiveWindow)
+    const targetValue = estimateNext(normalizedNumbers)
     const noise = (Math.random() - 0.5) * noiseFactor * Math.max(1, Math.abs(targetValue))
     const predValue = localWeight * featureSignal + noise
 
-    if (localToken !== runToken.current) return localWeight
+    if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     setPhase('prediction')
     setForwardIndex(labels.length)
     setPrediction(round2(predValue))
@@ -127,30 +151,32 @@ export default function StageThreeFull() {
     await wait(pauseMs)
 
     const computedLoss = Math.pow(targetValue - predValue, 2)
-    if (localToken !== runToken.current) return localWeight
+    if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     setPhase('loss')
     setLoss(round2(computedLoss))
     await wait(pauseMs)
 
-    if (localToken !== runToken.current) return localWeight
+    if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     setPhase('backward')
     const backwardStop = Math.max(0, labels.length - effectiveWindow)
     for (let i = labels.length - 1; i >= backwardStop; i -= 1) {
-      if (localToken !== runToken.current) return localWeight
+      if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
       setBackwardIndex(i)
       await wait(pauseMs * 0.75)
     }
 
-    const grad = -2 * (targetValue - predValue) * featureSignal
-    if (localToken !== runToken.current) return localWeight
+    const rawGrad = -2 * (targetValue - predValue) * featureSignal
+    const scaledGrad = (rawGrad / labels.length) * 1.5
+    const grad = clamp(scaledGrad, -5, 5)
+    if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     const roundedPred = round2(predValue)
     const roundedTarget = round2(targetValue)
-    const roundedLoss = round2(computedLoss)
+    const roundedLoss = roundTo(computedLoss, 5)
     const roundedGrad = round2(grad)
     setGradient(roundedGrad)
     setPhase('update')
 
-    const updatedWeight = localWeight - learningRate * grad
+    const updatedWeight = clamp(localWeight - safeLearningRate * grad, -100, 100)
     const roundedWeight = round2(updatedWeight)
     setWeight(roundedWeight)
     setEpochRecords((prev) => [
@@ -167,26 +193,44 @@ export default function StageThreeFull() {
     ])
     await wait(pauseMs)
 
-    return updatedWeight
+    return { nextWeight: updatedWeight, nextLoss: computedLoss }
   }
 
-  async function playEpochs(epochCount = 3) {
+  async function playEpochs(epochCount: number, appendHistory = true) {
     if (!parsedRaw.valid || labels.length < 2) return
 
     runToken.current += 1
     const localToken = runToken.current
     setIsPlaying(true)
-    setEpochRecords([])
 
-    let localWeight = weight
-    for (let i = 1; i <= epochCount; i += 1) {
-      localWeight = await runSingleEpoch(localToken, localWeight, i)
-      if (localToken !== runToken.current) return
+    const safeEpochCount = clamp(epochCount, 5, 50)
+    if (!appendHistory) {
+      setEpochRecords([])
+      setEpoch(0)
     }
 
-    if (localToken !== runToken.current) return
+    let localWeight = weight
+    const baseEpoch = appendHistory ? epoch : 0
+    for (let i = 1; i <= safeEpochCount; i += 1) {
+      const result = await runSingleEpoch(localToken, localWeight, baseEpoch + i)
+      localWeight = result.nextWeight
+      if (localToken !== runToken.current) {
+        setIsPlaying(false)
+        return
+      }
+    }
+
+    if (localToken !== runToken.current) {
+      setIsPlaying(false)
+      return
+    }
     setPhase('done')
     setIsPlaying(false)
+  }
+
+  function trainMore() {
+    if (isPlaying) return
+    void playEpochs(selectedEpochs, true)
   }
 
   function pausePlayback() {
@@ -201,8 +245,8 @@ export default function StageThreeFull() {
     setForwardIndex(next)
     if (next === labels.length) {
       setPhase('prediction')
-      const targetValue = estimateNext(numbers)
-      setPrediction(round2(weight * featuresFromNumbers(numbers, effectiveWindow)))
+      const targetValue = estimateNext(normalizedNumbers)
+      setPrediction(round2(weight * featuresFromNumbers(normalizedNumbers, effectiveWindow)))
       setTarget(round2(targetValue))
     }
   }
@@ -220,19 +264,31 @@ export default function StageThreeFull() {
     })
   }
 
+  const convergenceStatus = useMemo(() => {
+    if (!epochRecords.length) return 'Not Started'
+    const latestLoss = epochRecords[epochRecords.length - 1].loss
+    if (latestLoss < 0.001) return 'Converged'
+    if (epochRecords.length >= 4) {
+      const recent = epochRecords.slice(-4).map((row) => row.loss)
+      const decreasing = recent[3] < recent[2] && recent[2] < recent[1] && recent[1] < recent[0]
+      if (decreasing) return 'Converging'
+    }
+    return 'Slow Learning'
+  }, [epochRecords])
+
   const simpleExplanation =
     phase === 'forward'
-      ? 'The model processes input steps one-by-one from left to right.'
+      ? 'The model processes the sequence step-by-step and builds an internal representation.'
       : phase === 'prediction'
-        ? 'The final hidden signal produces the prediction at y_hat.'
+        ? 'The model generates a prediction based on the learned pattern.'
         : phase === 'loss'
-          ? 'The model measures prediction error with L = (y - y_hat)^2.'
+          ? 'The prediction differs from the actual value, creating an error that must be corrected.'
           : phase === 'backward'
-            ? 'Error flows backward across time, assigning contribution to each step.'
+            ? 'The error is propagated backward through all time steps, allowing the model to identify which steps contributed to the mistake.'
             : phase === 'update'
-              ? 'The model updates its weight using the gradient and learning rate.'
+              ? 'The model updates its weights to reduce the prediction error in future iterations.'
               : phase === 'done'
-                ? 'After updates, prediction moves closer to target.'
+                ? 'The prediction has moved closer to the target, indicating that the model has learned from the sequence.'
                 : 'Press Play to run the complete BPTT cycle.'
 
   return (
@@ -256,6 +312,21 @@ export default function StageThreeFull() {
           />
 
           <div className="stage3-slider-row">
+            <label htmlFor="epochs">Epochs</label>
+            <span>{selectedEpochs}</span>
+          </div>
+          <input
+            className="stage3-range"
+            id="epochs"
+            type="range"
+            min={5}
+            max={50}
+            step={1}
+            value={selectedEpochs}
+            onChange={(event) => setSelectedEpochs(clamp(Number(event.target.value), 5, 50))}
+          />
+
+          <div className="stage3-slider-row">
             <label htmlFor="learning-rate">Learning rate</label>
             <span>{learningRate.toFixed(3)}</span>
           </div>
@@ -264,10 +335,10 @@ export default function StageThreeFull() {
             id="learning-rate"
             type="range"
             min={0.001}
-            max={0.05}
+            max={0.02}
             step={0.001}
             value={learningRate}
-            onChange={(event) => setLearningRate(Number(event.target.value))}
+            onChange={(event) => setLearningRate(clamp(Number(event.target.value), 0.001, 0.02))}
           />
 
           <div className="stage3-slider-row">
@@ -332,10 +403,11 @@ export default function StageThreeFull() {
 
           <div className="stage3-actions">
             {!isPlaying ? (
-              <button className="stage3-btn stage3-btn-primary" type="button" onClick={() => playEpochs(4)}>Play</button>
+              <button className="stage3-btn stage3-btn-primary" type="button" onClick={() => playEpochs(selectedEpochs, true)}>Play</button>
             ) : (
               <button className="stage3-btn stage3-btn-primary" type="button" onClick={pausePlayback}>Pause</button>
             )}
+            <button className="stage3-btn" type="button" onClick={trainMore} disabled={isPlaying}>Train More</button>
             <button className="stage3-btn" type="button" onClick={stepForward} disabled={isPlaying}>Step +</button>
             <button className="stage3-btn" type="button" onClick={stepBackward} disabled={isPlaying}>Step -</button>
             <button className="stage3-btn" type="button" onClick={resetViewOnly} disabled={isPlaying}>Reset View</button>
@@ -411,9 +483,10 @@ export default function StageThreeFull() {
             <div className="metric">W: {weight}</div>
             <div className="metric">y_hat: {prediction}</div>
             <div className="metric">y: {target}</div>
-            <div className="metric">L: {loss}</div>
+            <div className="metric">L: {loss.toFixed(5)}</div>
             <div className="metric">gradient: {gradient}</div>
             <div className="metric">BPTT window: {effectiveWindow}</div>
+            <div className="metric">Status: {convergenceStatus}</div>
           </div>
         </section>
       </div>
@@ -433,12 +506,86 @@ export default function StageThreeFull() {
         )}
 
         {technicalMode && (
-          <div className="inline-guide stage3-technical">
-            <div>Forward: h_t = f(x_t, h_(t-1))</div>
-            <div>Loss: L = (y - y_hat)^2</div>
-            <div>Backward: dL/dh_t</div>
-            <div>Gradient accumulation: dL/dW = sum over time</div>
-            <div>Update: W = W - lr * gradient</div>
+          <div className="inline-guide stage3-technical stage3-tech-grid">
+            <section className="stage3-tech-item">
+              <h4>1. Forward Pass</h4>
+              <BlockMath tex={String.raw`h_t = f(W x_t + U h_{t-1})`} />
+              <p>
+                Where: x_t is input at time t, h_(t-1) is previous hidden state, h_t is current hidden state,
+                W is input weight matrix, U is recurrent weight matrix, and f is the activation function.
+              </p>
+              <p>
+                The model combines current input and prior state to compute the new hidden state,
+                preserving sequence context across time.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>2. Output / Prediction</h4>
+              <BlockMath tex={String.raw`\hat{y} = V h_T`} />
+              <p>
+                Where: h_T is the final hidden state, V is output weight matrix, and y_hat is prediction.
+              </p>
+              <p>
+                The final hidden representation is projected into output space to generate prediction.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>3. Loss Function</h4>
+              <BlockMath tex={String.raw`L = (y - \hat{y})^2`} />
+              <p>
+                Where: y is actual value, y_hat is predicted value, and L is squared error loss.
+              </p>
+              <p>
+                This quantifies prediction error by measuring squared distance between target and prediction.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>4. Backpropagation Through Time</h4>
+              <BlockMath tex={String.raw`\frac{dL}{dh_t} = \frac{dL}{dh_{t+1}} \cdot \frac{dh_{t+1}}{dh_t}`} />
+              <p>
+                Where: dL/dh_t is gradient at time t, dL/dh_(t+1) is incoming gradient from next step,
+                and dh_(t+1)/dh_t captures temporal dependency between consecutive hidden states.
+              </p>
+              <p>
+                Error is propagated backward through time so each step learns its contribution to final loss.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>5. Gradient Accumulation</h4>
+              <BlockMath tex={String.raw`\frac{dL}{dW} = \sum_{t=1}^{T} \frac{dL}{dW_t}`} />
+              <p>
+                Where: dL/dW is total gradient, dL/dW_t is per-step gradient, and T is sequence length.
+              </p>
+              <p>
+                Gradients from all time steps are accumulated to produce the full sequence-level update.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>6. Weight Update</h4>
+              <BlockMath tex={String.raw`W = W - \eta \cdot \frac{dL}{dW}`} />
+              <p>
+                Where: W is model weights, eta is learning rate, and dL/dW is gradient.
+              </p>
+              <p>
+                Gradient descent updates parameters in the direction that reduces the overall loss.
+              </p>
+            </section>
+
+            <section className="stage3-tech-item">
+              <h4>7. Gradient Clipping (Optional)</h4>
+              <BlockMath tex={String.raw`g = clip(g, -c, c)`} />
+              <p>
+                Where: g is gradient value and c is clipping threshold.
+              </p>
+              <p>
+                Gradients are restricted to a bounded range to prevent exploding-gradient instability.
+              </p>
+            </section>
           </div>
         )}
       </section>

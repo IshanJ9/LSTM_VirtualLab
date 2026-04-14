@@ -596,6 +596,38 @@
   line-height: 1.5;
 }
 
+.stage3-tech-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.stage3-tech-item {
+  border: 1px solid rgba(138, 163, 196, 0.24);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(9, 16, 26, 0.74);
+}
+
+.stage3-tech-item h4 {
+  margin: 0 0 6px;
+  color: #e2eeff;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+.stage3-tech-equation {
+  margin: 2px 0 8px;
+  color: #f0f6ff;
+  text-align: left;
+}
+
+.stage3-tech-item p {
+  margin: 0;
+  color: #bfd1ec;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 840px) {
   .bptt-shell {
     padding: 12px;
