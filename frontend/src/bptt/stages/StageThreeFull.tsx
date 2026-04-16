@@ -3,14 +3,16 @@ import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { clamp, estimateNext, normalizedContributions, parseSequence, round2, wait } from '../utils'
 import katex from 'katex'
-import 'katex/dist/katex.min.css'
+import 'katex/dist/katex.css'
 
 type Phase = 'idle' | 'forward' | 'prediction' | 'loss' | 'backward' | 'update' | 'done'
 
 interface EpochRecord {
   epoch: number
   prediction: number
+  predictionDenorm: number
   target: number
+  targetDenorm: number
   loss: number
   gradient: number
   weight: number
@@ -40,7 +42,9 @@ export default function StageThreeFull() {
   const [epoch, setEpoch] = useState(0)
   const [weight, setWeight] = useState(0.72)
   const [prediction, setPrediction] = useState(0)
+  const [predictionDenorm, setPredictionDenorm] = useState(0)
   const [target, setTarget] = useState(0)
+  const [targetDenorm, setTargetDenorm] = useState(0)
   const [loss, setLoss] = useState(0)
   const [gradient, setGradient] = useState(0)
   const [epochRecords, setEpochRecords] = useState<EpochRecord[]>([])
@@ -120,7 +124,9 @@ export default function StageThreeFull() {
     setBpttWindow(labels.length)
     setSelectedEpochs(20)
     setPrediction(0)
+    setPredictionDenorm(0)
     setTarget(0)
+    setTargetDenorm(0)
     setLoss(0)
     setGradient(0)
     setEpochRecords([])
@@ -147,7 +153,9 @@ export default function StageThreeFull() {
     setPhase('prediction')
     setForwardIndex(labels.length)
     setPrediction(round2(predValue))
+    setPredictionDenorm(round2(predValue * inputScale))
     setTarget(round2(targetValue))
+    setTargetDenorm(round2(targetValue * inputScale))
     await wait(pauseMs)
 
     const computedLoss = Math.pow(targetValue - predValue, 2)
@@ -170,7 +178,9 @@ export default function StageThreeFull() {
     const grad = clamp(scaledGrad, -5, 5)
     if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     const roundedPred = round2(predValue)
+    const roundedPredDenorm = round2(predValue * inputScale)
     const roundedTarget = round2(targetValue)
+    const roundedTargetDenorm = round2(targetValue * inputScale)
     const roundedLoss = roundTo(computedLoss, 5)
     const roundedGrad = round2(grad)
     setGradient(roundedGrad)
@@ -184,7 +194,9 @@ export default function StageThreeFull() {
       {
         epoch: epochNumber,
         prediction: roundedPred,
+        predictionDenorm: roundedPredDenorm,
         target: roundedTarget,
+        targetDenorm: roundedTargetDenorm,
         loss: roundedLoss,
         gradient: roundedGrad,
         weight: roundedWeight,
@@ -246,8 +258,11 @@ export default function StageThreeFull() {
     if (next === labels.length) {
       setPhase('prediction')
       const targetValue = estimateNext(normalizedNumbers)
-      setPrediction(round2(weight * featuresFromNumbers(normalizedNumbers, effectiveWindow)))
+      const predValue = weight * featuresFromNumbers(normalizedNumbers, effectiveWindow)
+      setPrediction(round2(predValue))
+      setPredictionDenorm(round2(predValue * inputScale))
       setTarget(round2(targetValue))
+      setTargetDenorm(round2(targetValue * inputScale))
     }
   }
 
@@ -372,7 +387,7 @@ export default function StageThreeFull() {
           />
 
           <div className="stage3-slider-row">
-            <label htmlFor="noise-factor">Noise/Error factor</label>
+            <label htmlFor="noise-factor">Error factor</label>
             <span>{noiseFactor.toFixed(2)}</span>
           </div>
           <input
@@ -431,7 +446,9 @@ export default function StageThreeFull() {
               forwardIndex={forwardIndex}
               backwardIndex={phase === 'backward' || phase === 'update' || phase === 'done' ? backwardIndex : null}
               predictionLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(prediction) : undefined}
+              predictionLabelDenorm={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(predictionDenorm) : undefined}
               actualLabel={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(target) : undefined}
+              actualLabelDenorm={epoch > 0 || phase === 'prediction' || phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done' ? String(targetDenorm) : undefined}
               showError={phase === 'loss' || phase === 'backward' || phase === 'update' || phase === 'done'}
               lossRatio={target !== 0 ? clamp(loss / (Math.abs(target) + 1), 0, 1) : clamp(loss, 0, 1)}
             />
@@ -452,7 +469,9 @@ export default function StageThreeFull() {
                     <tr>
                       <th>Epoch</th>
                       <th>Prediction</th>
+                      <th>Prediction (denorm)</th>
                       <th>Target</th>
+                      <th>Target (denorm)</th>
                       <th>Loss</th>
                       <th>Gradient</th>
                       <th>Weight (W)</th>
@@ -464,7 +483,9 @@ export default function StageThreeFull() {
                       <tr key={`epoch-row-${row.epoch}`}>
                         <td>{row.epoch}</td>
                         <td>{row.prediction}</td>
+                        <td>{row.predictionDenorm}</td>
                         <td>{row.target}</td>
+                        <td>{row.targetDenorm}</td>
                         <td>{row.loss}</td>
                         <td>{row.gradient}</td>
                         <td>{row.weight}</td>
@@ -482,7 +503,9 @@ export default function StageThreeFull() {
             <div className="metric">Epoch: {epoch}</div>
             <div className="metric">W: {weight}</div>
             <div className="metric">y_hat: {prediction}</div>
+            <div className="metric">y_hat (denorm): {predictionDenorm}</div>
             <div className="metric">y: {target}</div>
+            <div className="metric">y (denorm): {targetDenorm}</div>
             <div className="metric">L: {loss.toFixed(5)}</div>
             <div className="metric">gradient: {gradient}</div>
             <div className="metric">BPTT window: {effectiveWindow}</div>

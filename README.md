@@ -1,6 +1,6 @@
 # DL LSTM VL
 
-An interactive XAI + LSTM lab built with a FastAPI backend and a React + Vite frontend. The app lets you explore simulated sequence datasets, inspect model behavior, and run counterfactual explanations through the browser UI.
+An interactive LSTM lab built with a FastAPI backend and a React + Vite frontend. The app lets you explore simulated sequence datasets, inspect model behavior, and run counterfactual explanations through the browser UI.
 
 ## What You Need
 

@@ -156,7 +156,7 @@ export default function Theory() {
         </div>
       </Sec>
 
-      {/* 6. XAI Metrics */}
+      {/* 6. Explainability Metrics */}
       <Sec title="6. Explainability Metrics" color="#A78BFA" delay={0.3}>
 
         <div style={{ marginBottom: 16 }}>

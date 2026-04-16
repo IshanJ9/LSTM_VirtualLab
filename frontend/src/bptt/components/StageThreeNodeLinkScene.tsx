@@ -7,7 +7,9 @@ interface StageThreeNodeLinkSceneProps {
   forwardIndex: number
   backwardIndex?: number | null
   predictionLabel?: string
+  predictionLabelDenorm?: string
   actualLabel?: string
+  actualLabelDenorm?: string
   showError?: boolean
   lossRatio?: number
   compact?: boolean
@@ -24,7 +26,9 @@ export default function StageThreeNodeLinkScene({
   forwardIndex,
   backwardIndex,
   predictionLabel,
+  predictionLabelDenorm,
   actualLabel,
+  actualLabelDenorm,
   showError = false,
   lossRatio,
   compact = false,
@@ -246,8 +250,18 @@ export default function StageThreeNodeLinkScene({
 
       {(predictionLabel || actualLabel) && (
         <div className="scene-output">
-          {predictionLabel && <div className="pill ok">Prediction: {predictionLabel}</div>}
-          {actualLabel && <div className="pill">Actual: {actualLabel}</div>}
+          {predictionLabel && (
+            <div className="pill ok">
+              Prediction: {predictionLabel}
+              {predictionLabelDenorm && <div style={{ fontSize: '0.85em', opacity: 0.85, marginTop: 2 }}>({predictionLabelDenorm})</div>}
+            </div>
+          )}
+          {actualLabel && (
+            <div className="pill">
+              Actual: {actualLabel}
+              {actualLabelDenorm && <div style={{ fontSize: '0.85em', opacity: 0.85, marginTop: 2 }}>({actualLabelDenorm})</div>}
+            </div>
+          )}
           {showError && <div className="pill alert">The model made a mistake.</div>}
           {typeof lossRatio === 'number' && (
             <div className="pill" style={{ minWidth: 230 }}>

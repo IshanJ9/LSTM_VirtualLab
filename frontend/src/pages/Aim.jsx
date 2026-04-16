@@ -15,7 +15,7 @@ export default function Aim() {
         <h1 style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.15, margin: '0 0 16px',
           background: 'linear-gradient(135deg, #E2E8F0, #00E5FF, #8B5CF6)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          XAI-LSTM Lab
+          LSTM Lab
         </h1>
         <p style={{ fontSize: 18, color: '#94A3B8', maxWidth: 600, lineHeight: 1.7, margin: 0 }}>
           An Interactive Visual Analytics Platform for Interpretable Sequential Modeling.
@@ -57,7 +57,7 @@ export default function Aim() {
           {[
             { label: 'Beyond Black-Box', text: 'Custom PyTorch LSTM with explicit gate computation — not a wrapped nn.LSTM.' },
             { label: 'Real Datasets', text: '4 benchmark datasets covering periodicity, noise, symbolic memory, and long-range dependencies.' },
-            { label: 'Live XAI', text: 'Counterfactual simulation, gate contribution scoring, and memory persistence tracking in one interface.' },
+            { label: 'Live Analytics', text: 'Counterfactual simulation, gate contribution scoring, and memory persistence tracking in one interface.' },
           ].map((it, i) => (
             <div key={i}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#00E5FF', marginBottom: 6 }}>{it.label}</div>

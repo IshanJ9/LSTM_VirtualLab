@@ -1,5 +1,5 @@
 """
-Benchmark dataset generators for XAI-LSTM Lab.
+Benchmark dataset generators for LSTM Lab.
 Each returns (x_seq, y_seq, metadata_dict).
 """
 import numpy as np

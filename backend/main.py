@@ -1,5 +1,5 @@
 """
-FastAPI backend for XAI-LSTM Lab.
+FastAPI backend for LSTM Lab.
 Endpoints: GET /simulate, GET /analysis, POST /counterfactual, GET /datasets
 """
 import os
@@ -19,7 +19,7 @@ from explainability import (
     counterfactual_prediction,
 )
 
-app = FastAPI(title="XAI-LSTM Lab API", version="1.0.0")
+app = FastAPI(title="LSTM Lab API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,7 +54,7 @@ def _check(dataset: str):
 
 @app.get("/")
 def root():
-    return {"message": "XAI-LSTM Lab API", "version": "1.0.0", "datasets": DATASETS}
+    return {"message": "LSTM Lab API", "version": "1.0.0", "datasets": DATASETS}
 
 
 @app.get("/datasets")

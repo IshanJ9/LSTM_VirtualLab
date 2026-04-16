@@ -31,7 +31,7 @@ export default function Navbar() {
             fontSize: 14,
           }}>🧠</div>
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px', color: '#E2E8F0' }}>
-            XAI-<span style={{ color: '#00E5FF' }}>LSTM</span> Lab
+            <span style={{ color: '#00E5FF' }}>LSTM</span> Lab
           </span>
         </div>
 

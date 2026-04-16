@@ -46,7 +46,7 @@ const QUESTIONS = [
     exp: 'The target output equals input from 10 steps ago. The LSTM must store information reliably for 10 steps.',
   },
   {
-    q: 'Memory Persistence Score in XAI-LSTM Lab is computed from…',
+    q: 'Memory Persistence Score in LSTM Lab is computed from…',
     options: ['Gate weight magnitudes', 'Autocorrelation of ‖C_t‖ over lags', 'MSE loss over time', 'Hidden state entropy'],
     ans: 1,
     exp: 'Autocorrelation of the cell state norm measures how long past information continues to influence future states.',
@@ -58,7 +58,7 @@ const QUESTIONS = [
     exp: 'Normalized mean gate activation shows which gate dominates the model\'s behavior for a given dataset.',
   },
   {
-    q: 'Counterfactual simulation in XAI helps to…',
+    q: 'Counterfactual simulation helps to…',
     options: ['Generate new training data', 'Speed up batch inference', 'Explore "what if" scenarios by modifying gate values', 'Reduce model parameters'],
     ans: 2,
     exp: 'By changing a gate value and recomputing the output, we gain causal insight into gate influence on predictions.',
@@ -108,7 +108,7 @@ export default function Quiz() {
     doc.setTextColor(0, 229, 255)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    doc.text('XAI-LSTM LAB', W/2, 30, { align: 'center' })
+    doc.text('LSTM LAB', W/2, 30, { align: 'center' })
 
     doc.setTextColor(200, 220, 240)
     doc.setFontSize(22)
@@ -132,7 +132,7 @@ export default function Quiz() {
     doc.setFontSize(11)
     doc.setTextColor(100, 116, 139)
     doc.setFont('helvetica', 'normal')
-    doc.text('has successfully completed the XAI-LSTM Lab Assessment', W/2, 110, { align: 'center' })
+    doc.text('has successfully completed the LSTM Lab Assessment', W/2, 110, { align: 'center' })
 
     // Score
     doc.setTextColor(0, 229, 255)
@@ -149,9 +149,9 @@ export default function Quiz() {
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
     doc.text(`Issued: ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}`, W/2, 165, { align: 'center' })
-    doc.text('XAI-LSTM Lab · Interactive Visual Analytics for Interpretable Sequential Modeling', W/2, 173, { align: 'center' })
+    doc.text('LSTM Lab · Interactive Visual Analytics for Interpretable Sequential Modeling', W/2, 173, { align: 'center' })
 
-    doc.save(`XAI-LSTM-Certificate-${name.replace(/\s/g,'_') || 'Student'}.pdf`)
+    doc.save(`LSTM-Certificate-${name.replace(/\s/g,'_') || 'Student'}.pdf`)
   }
 
   /* Name entry screen */

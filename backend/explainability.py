@@ -1,5 +1,5 @@
 """
-Explainability module for XAI-LSTM Lab.
+Explainability module for LSTM Lab.
 Provides: gate_contribution, memory_persistence, detect_failure_cases, counterfactual_prediction
 """
 from typing import List, Dict, Optional
