@@ -11,7 +11,7 @@ interface EpochRecord {
   epoch: number
   prediction: number
   predictionDenorm: number
-  target: number
+  target: n umber
   targetDenorm: number
   loss: number
   gradient: number
@@ -25,7 +25,7 @@ function BlockMath({ tex }: { tex: string }) {
 }
 
 export default function StageThreeFull() {
-  const [sequenceInput, setSequenceInput] = useState('10 12 15 18 21 25 30')
+  const [sequenceInput, setSequenceInput] = useState('1 1 2 3 5 8 13 21')
   const [selectedEpochs, setSelectedEpochs] = useState(20)
   const [learningRate, setLearningRate] = useState(0.012)
   const [decay, setDecay] = useState(0.9)
@@ -145,7 +145,7 @@ export default function StageThreeFull() {
     }
 
     const featureSignal = featuresFromNumbers(normalizedNumbers, effectiveWindow)
-    const targetValue = estimateNext(normalizedNumbers)
+    const targetValue = estimateNext(numbers) / inputScale
     const noise = (Math.random() - 0.5) * noiseFactor * Math.max(1, Math.abs(targetValue))
     const predValue = localWeight * featureSignal + noise
 
@@ -174,8 +174,8 @@ export default function StageThreeFull() {
     }
 
     const rawGrad = -2 * (targetValue - predValue) * featureSignal
-    const scaledGrad = (rawGrad / labels.length) * 1.5
-    const grad = clamp(scaledGrad, -5, 5)
+    const scaledGrad = rawGrad * 2.0
+    const grad = clamp(scaledGrad, -20, 20)
     if (localToken !== runToken.current) return { nextWeight: localWeight, nextLoss: Number.POSITIVE_INFINITY }
     const roundedPred = round2(predValue)
     const roundedPredDenorm = round2(predValue * inputScale)
@@ -257,7 +257,7 @@ export default function StageThreeFull() {
     setForwardIndex(next)
     if (next === labels.length) {
       setPhase('prediction')
-      const targetValue = estimateNext(normalizedNumbers)
+      const targetValue = estimateNext(numbers) / inputScale
       const predValue = weight * featuresFromNumbers(normalizedNumbers, effectiveWindow)
       setPrediction(round2(predValue))
       setPredictionDenorm(round2(predValue * inputScale))
@@ -317,14 +317,20 @@ export default function StageThreeFull() {
           <div className="stage3-title">Controls</div>
 
           <label htmlFor="stage3-sequence" className="stage3-label">Input Sequence</label>
-          <textarea
-            className="stage3-textarea"
+          <select
+            className="stage3-select"
+            style={{ width: '100%', marginBottom: 16, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
             id="stage3-sequence"
             value={sequenceInput}
             onChange={(event) => setSequenceInput(event.target.value)}
             aria-label="Sequence input"
-            placeholder="Enter numeric or text sequence"
-          />
+          >
+            <option value="1 1 2 3 5 8 13 21">Fibonacci (1, 1, 2, 3, 5, 8, 13, 21)</option>
+            <option value="5 10 15 20 25 30 35">Multiples of 5 (5, 10, 15, 20, 25, 30, 35)</option>
+            <option value="1 4 9 16 25 36 49">Squares (1, 4, 9, 16, 25, 36, 49)</option>
+            <option value="2 4 8 16 32 64 128">Powers of 2 (2, 4, 8, 16, 32, 64, 128)</option>
+            <option value="2 0.75 0.44 0.31 0.24 0.19">Math Series 1/x + 1/x² (2, 0.75, 0.44...)</option>
+          </select>
 
           <div className="stage3-slider-row">
             <label htmlFor="epochs">Epochs</label>
