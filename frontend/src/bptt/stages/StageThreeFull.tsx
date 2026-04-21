@@ -11,7 +11,7 @@ interface EpochRecord {
   epoch: number
   prediction: number
   predictionDenorm: number
-  target: n umber
+  target: number;
   targetDenorm: number
   loss: number
   gradient: number

@@ -10,19 +10,9 @@ interface StageTwoInteractiveProps {
   onNext?: () => void
 }
 
-function predictTextNext(tokens: string[]): string {
-  if (!tokens.length) return ''
-  const last = tokens[tokens.length - 1]
-  if (tokens.length === 1) return `${last} next`
-  const previous = tokens[tokens.length - 2]
-  if (last.length <= 3) return `${last} next`
-  return `${previous} ${last}`
-}
-
 export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps) {
-  const [sequenceType, setSequenceType] = useState<'text' | 'numeric'>('text')
-  const [sequenceInput, setSequenceInput] = useState('I love AI')
-  const [actualValue, setActualValue] = useState('AI systems')
+  const [sequenceInput, setSequenceInput] = useState('10 12 15')
+  const [actualValue, setActualValue] = useState('20')
   const [phase, setPhase] = useState<Phase>('idle')
   const [forwardIndex, setForwardIndex] = useState(-1)
   const [backwardIndex, setBackwardIndex] = useState<number | null>(null)
@@ -35,66 +25,28 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
   const runToken = useRef(0)
 
   const parsed = useMemo<ParsedSequence>(() => {
-    if (sequenceType === 'numeric') {
-      const base = parseSequence(sequenceInput)
-      if (!base.valid) return base
-      const numericValues = base.tokens.map((token) => Number(token))
-      const allNumeric = numericValues.every((value) => Number.isFinite(value))
+    const base = parseSequence(sequenceInput)
+    if (!base.valid) return base
+    const numericValues = base.tokens.map((token) => Number(token))
+    const allNumeric = numericValues.every((value) => Number.isFinite(value))
 
-      if (!allNumeric) {
-        return {
-          rawInput: sequenceInput,
-          tokens: base.tokens,
-          numbers: [],
-          kind: 'numeric',
-          valid: false,
-          reason: 'Numeric mode selected: please enter only numbers (space or comma separated).',
-        }
-      }
-
+    if (!allNumeric) {
       return {
-        ...base,
+        rawInput: sequenceInput,
+        tokens: base.tokens,
+        numbers: [],
         kind: 'numeric',
-        numbers: numericValues,
-      }
-    }
-
-    const normalized = sequenceInput.trim()
-    if (!normalized) {
-      return {
-        rawInput: sequenceInput,
-        tokens: [],
-        numbers: [],
-        kind: 'text',
         valid: false,
-        reason: 'Text mode selected: please enter a text sequence.',
-      }
-    }
-
-    const tokens = normalized
-      .split(/[,\s]+/)
-      .map((token) => token.trim())
-      .filter(Boolean)
-
-    if (!tokens.length) {
-      return {
-        rawInput: sequenceInput,
-        tokens: [],
-        numbers: [],
-        kind: 'text',
-        valid: false,
-        reason: 'Text mode selected: could not detect tokens.',
+        reason: 'Please enter only numbers (space or comma separated).',
       }
     }
 
     return {
-      rawInput: sequenceInput,
-      tokens,
-      numbers: tokens.map((token, idx) => token.length + idx * 0.15),
-      kind: 'text',
-      valid: true,
+      ...base,
+      kind: 'numeric',
+      numbers: numericValues,
     }
-  }, [sequenceInput, sequenceType])
+  }, [sequenceInput])
   const contributions = useMemo(() => normalizedContributions(parsed.tokens.length, 0.7), [parsed.tokens.length])
 
   async function runSimulation() {
@@ -123,26 +75,19 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
     let predicted: string
     let mismatch = true
     let note = ''
-    if (parsed.kind === 'numeric') {
-      const predictedValue = round2(estimateNext(parsed.numbers))
-      predicted = String(predictedValue)
 
-      const parsedActual = Number(actualValue)
-      const actualNumber = Number.isFinite(parsedActual) ? parsedActual : round2(predictedValue + 1.2)
-      const actualRounded = round2(actualNumber)
-      const numericGap = Math.abs(predictedValue - actualRounded)
-      mismatch = numericGap > 0.01
-      note = mismatch
-        ? `Numeric error magnitude: ${round2(numericGap)}`
-        : 'Prediction matches actual value. Error is effectively zero.'
-      setActualLabel(String(actualRounded))
-    } else {
-      predicted = predictTextNext(parsed.tokens)
-      const expectedText = actualValue.trim() || `${parsed.tokens[parsed.tokens.length - 1]} next`
-      mismatch = predicted.toLowerCase() !== expectedText.toLowerCase()
-      note = mismatch ? 'Text mismatch detected between predicted and actual output.' : 'Text prediction matches actual output.'
-      setActualLabel(expectedText)
-    }
+    const predictedValue = round2(estimateNext(parsed.numbers))
+    predicted = String(predictedValue)
+
+    const parsedActual = Number(actualValue)
+    const actualNumber = Number.isFinite(parsedActual) ? parsedActual : round2(predictedValue + 1.2)
+    const actualRounded = round2(actualNumber)
+    const numericGap = Math.abs(predictedValue - actualRounded)
+    mismatch = numericGap > 0.01
+    note = mismatch
+      ? `Numeric error magnitude: ${round2(numericGap)}`
+      : 'Prediction matches actual value. Error is effectively zero.'
+    setActualLabel(String(actualRounded))
 
     setPredictionLabel(predicted)
     setErrorNote(note)
@@ -181,9 +126,7 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
             ? 'Backward pass: the error now travels in reverse so earlier steps can be corrected.'
             : phase === 'done'
               ? 'Recent steps influence the prediction more. Earlier steps still contribute, but less.'
-              : parsed.kind === 'numeric'
-                ? 'Numeric mode detected. We will predict the next number and compare with your actual value.'
-                : 'Text mode detected. We will predict the next token and compare with your actual value.'
+              : 'Numeric mode detected. We will predict the next number and compare with your actual value.'
 
   return (
     <StageCard
@@ -192,39 +135,13 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
       className="stage-card-full"
     >
       <div className="controls" style={{ alignItems: 'flex-end' }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <label htmlFor="sequence-type" style={{ color: '#cfe0f7', fontSize: 13 }}>Sequence Type</label>
-          <select
-            id="sequence-type"
-            value={sequenceType}
-            onChange={(event) => {
-              runToken.current += 1
-              setSequenceType(event.target.value as 'text' | 'numeric')
-              setSequenceInput('')
-              setActualValue('')
-              setPhase('idle')
-              setForwardIndex(-1)
-              setBackwardIndex(null)
-              setPredictionLabel('')
-              setActualLabel('')
-              setErrorNote('')
-              setIsMismatch(null)
-              setIsRunning(false)
-            }}
-            aria-label="Sequence type"
-          >
-            <option value="text">Text</option>
-            <option value="numeric">Numeric</option>
-          </select>
-        </div>
-
         <div style={{ display: 'grid', gap: 6, flex: '1 1 540px' }}>
           <label htmlFor="stage2-sequence" style={{ color: '#cfe0f7', fontSize: 13 }}>Input Sequence</label>
           <input
             id="stage2-sequence"
             value={sequenceInput}
             onChange={(event) => setSequenceInput(event.target.value)}
-            placeholder={sequenceType === 'numeric' ? 'Example: 10 12 15' : 'Example: I love AI'}
+            placeholder="Example: 10 12 15"
             aria-label="Input sequence"
             type="text"
           />
@@ -236,9 +153,9 @@ export default function StageTwoInteractive({ onNext }: StageTwoInteractiveProps
             id="stage2-actual"
             value={actualValue}
             onChange={(event) => setActualValue(event.target.value)}
-            placeholder={sequenceType === 'numeric' ? 'Example: 20' : 'Example: AI systems'}
+            placeholder="Example: 20"
             aria-label="Actual value"
-            type={sequenceType === 'numeric' ? 'number' : 'text'}
+            type="number"
           />
         </div>
 
