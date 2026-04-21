@@ -429,6 +429,31 @@
   font-weight: 600;
 }
 
+.stage3-select {
+  width: 100%;
+  border: 1px solid rgba(138, 163, 196, 0.35);
+  background: rgba(8, 16, 25, 0.9);
+  color: #e8f0ff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.stage3-select-sequence {
+  margin-bottom: 16px;
+}
+
+.stage3-title-tight {
+  margin-bottom: 8px;
+}
+
+.inline-guide-flat {
+  margin-top: 0;
+}
+
+.stage3-note-gap {
+  margin-top: 8px;
+}
+
 .stage3-textarea {
   width: 100%;
   min-height: 78px;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
+import StageTwoNodeLinkScene from '../components/StageTwoNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { normalizedContributions, wait } from '../utils'
 
@@ -73,7 +73,7 @@ export default function StageOneIntro({ onNext }: StageOneIntroProps) {
         </div>
       </div>
 
-      <StageThreeNodeLinkScene
+      <StageTwoNodeLinkScene
         values={tokens}
         contributions={contributions}
         forwardIndex={forwardIndex}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import StageThreeNodeLinkScene from '../components/StageThreeNodeLinkScene'
+import StageTwoNodeLinkScene from '../components/StageTwoNodeLinkScene'
 import StageCard from '../components/StageCard'
 import { clamp, estimateNext, normalizedContributions, parseSequence, round2, wait } from '../utils'
 import katex from 'katex'
+import 'katex/dist/katex.css'
 
 type Phase = 'idle' | 'forward' | 'prediction' | 'loss' | 'backward' | 'update' | 'done'
 
@@ -23,7 +24,7 @@ function BlockMath({ tex }: { tex: string }) {
   return <div className="stage3-tech-equation" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-export default function StageThreeFull() {
+export default function StageTwoFull() {
   const [sequenceInput, setSequenceInput] = useState('1 1 2 3 5 8 13 21')
   const [selectedEpochs, setSelectedEpochs] = useState(20)
   const [learningRate, setLearningRate] = useState(0.012)
@@ -307,7 +308,7 @@ export default function StageThreeFull() {
 
   return (
     <StageCard
-      title="Stage 3: Full BPTT Simulation"
+      title="Stage 2: Full BPTT Simulation"
       intro="Now let’s explore the complete working of BPTT."
       className="stage-card-full"
     >
@@ -317,7 +318,8 @@ export default function StageThreeFull() {
 
           <label htmlFor="stage3-sequence" className="stage3-label">Input Sequence</label>
           <select
-            className="stage3-select stage3-select-sequence"
+            className="stage3-select"
+            style={{ width: '100%', marginBottom: 16, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
             id="stage3-sequence"
             value={sequenceInput}
             onChange={(event) => setSequenceInput(event.target.value)}
@@ -439,12 +441,12 @@ export default function StageThreeFull() {
         </aside>
 
         <section className="stage3-panel stage3-main">
-          <div className="stage3-title stage3-title-tight">
+          <div className="stage3-title" style={{ marginBottom: 8 }}>
             Main Simulation (Forward, Loss, Backward, Update)
           </div>
 
           <div className="stage3-scroller">
-            <StageThreeNodeLinkScene
+            <StageTwoNodeLinkScene
               values={labels}
               contributions={contributions}
               forwardIndex={forwardIndex}
@@ -459,11 +461,11 @@ export default function StageThreeFull() {
           </div>
 
           <div className="stage3-epoch-table-wrap">
-            <div className="stage3-title stage3-title-tight">
+            <div className="stage3-title" style={{ marginBottom: 8 }}>
               Epoch-wise Training Summary
             </div>
             {epochRecords.length === 0 ? (
-              <div className="inline-guide inline-guide-flat">
+              <div className="inline-guide" style={{ marginTop: 0 }}>
                 Run the simulation to populate epoch-wise results.
               </div>
             ) : (
@@ -519,14 +521,14 @@ export default function StageThreeFull() {
       </div>
 
       <section className="stage3-panel stage3-explain">
-        <div className="stage3-title stage3-title-tight">
+        <div className="stage3-title" style={{ marginBottom: 8 }}>
           Explanation Panel
         </div>
 
         {!technicalMode && (
           <div className="inline-guide">
             {simpleExplanation}
-            <div className="stage3-note-gap">
+            <div style={{ marginTop: 8 }}>
               The model processes inputs step-by-step, makes a prediction, measures error, sends error backward through time, and updates itself.
             </div>
           </div>

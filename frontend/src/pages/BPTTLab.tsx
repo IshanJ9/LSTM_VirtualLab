@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import '../bptt/BpttLab.css'
 import StageOneIntro from '../bptt/stages/StageOneIntro'
-import StageTwoInteractive from '../bptt/stages/StageTwoInteractive'
-import StageThreeFull from '../bptt/stages/StageThreeFull'
+import StageTwoFull from '../bptt/stages/StageTwoFull'
 
-type Stage = 1 | 2 | 3
+type Stage = 1 | 2
 
 export default function BPTTLab() {
   const [activeStage, setActiveStage] = useState<Stage>(1)
@@ -24,16 +23,12 @@ export default function BPTTLab() {
           Stage 1: Problem
         </button>
         <button className={`stage-tab ${activeStage === 2 ? 'is-active' : ''}`} type="button" onClick={() => setActiveStage(2)}>
-          Stage 2: Interactive Example
-        </button>
-        <button className={`stage-tab ${activeStage === 3 ? 'is-active' : ''}`} type="button" onClick={() => setActiveStage(3)}>
-          Stage 3: Full Simulation
+          Stage 2: Full Simulation
         </button>
       </div>
 
       {activeStage === 1 && <StageOneIntro onNext={() => setActiveStage(2)} />}
-      {activeStage === 2 && <StageTwoInteractive onNext={() => setActiveStage(3)} />}
-      {activeStage === 3 && <StageThreeFull />}
+      {activeStage === 2 && <StageTwoFull />}
     </div>
   )
 }
